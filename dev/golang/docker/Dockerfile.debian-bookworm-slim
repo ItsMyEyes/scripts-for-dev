@@ -1,0 +1,46 @@
+# image for compiling binary
+ARG BUILDER_IMAGE="golang:1.21.8"
+# here we'll run binary app
+ARG RUNNER_IMAGE="debian:bookworm-slim"
+
+# Github access token to fetch private modules
+# ARG GITHUB_TOKEN
+
+FROM --platform=linux/amd64 ${BUILDER_IMAGE} as builder
+### variables
+# disable golang package proxying for this modules. necessary for private repos. Example: github.com/company-name
+ARG GOPRIVATE="github.com/ItsMyEyes"
+
+# install dependencies and tools you need
+RUN apt-get update && apt-get install -y \
+    gcc \
+    libc6 \
+    libc-dev
+    # librdkafka-dev
+
+# configure git to work with private repos
+# RUN echo -e "machine gitlab.com\nlogin gitlab-ci-token\npassword ${GITHUB_TOKEN}" > ~/.netrc
+
+### copying project files
+WORKDIR /app
+
+# copy gomod 
+COPY go.mod go.sum ./
+
+# COPY the source code as the last step
+
+COPY . .
+
+ENV CGO_ENABLED=1
+
+# creates build/main files
+RUN make build
+
+FROM --platform=linux/amd64 ${RUNNER_IMAGE}
+
+# create config directory
+RUN mkdir -p /etc/server
+
+COPY --from=builder /app/bin/server .
+
+CMD ["./server", "serve"]

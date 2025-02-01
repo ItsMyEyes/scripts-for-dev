@@ -1,0 +1,34 @@
+name: Build Docker Image
+
+on:
+  push:
+    branches:
+      - master
+
+jobs:
+  build:
+    runs-on: self-hosted
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v2
+
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v2
+
+    - name: Log in to Repository
+      run: echo ${{ action.username }} | docker login ${{ action.remote }} -u ${{ action.username }} --password-stdin
+
+    - name: Set outputs
+      id: vars
+      run: echo "sha_short=$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
+      
+    - name: Check outputs
+      run: echo ${{ steps.vars.outputs.sha_short }}
+
+    - name: Build and push Docker image
+      uses: docker/build-push-action@v4
+      with:
+        context: .
+        push: true
+        tags: ${{ action.remote }}/${{ action.repo }}/${{ github.event.repository.name }}:${{ steps.vars.outputs.sha_short }}
